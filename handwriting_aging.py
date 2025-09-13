@@ -3,18 +3,17 @@
 Handwriting aging simulator: transforms an input image with handwritten text to mimic age-related handwriting changes.
 
 Features implemented (toggleable):
-- Elastic warp for baseline drift and local deformations (mimics tremor, line noncompliance)
+- Elastic warp for baseline drift with micro‑tremor (mimics tremor and линия строки)
 - Slant variation implicitly via displacement fields
-- Variable pen pressure (stroke thickness variation) via morphology blended with coherent noise
-- Incomplete final letters (per-component right-edge fade)
-- Optional strikethroughs and smudges
-- Paper aging: warming/sepia tone, vignetting, stains/foxing, grain
+- Variable pen pressure: thickness (morphology) + intensity modulation via distance transform
+- Incomplete final letters (per‑component fade along major axis/PCA)
+- Ink bleed/feathering with edge‑weighted, noise‑modulated feather
 
 Input: image file with handwritten text (any common format)
 Output: image file with aged handwriting look
 
 Usage:
-  python handwriting_aging.py input.jpg output.jpg --severity 0.6 --seed 42 --smudges --strikethroughs
+  python handwriting_aging.py input.jpg output.jpg --severity 0.6 --seed 42
 
 Notes:
 - The pipeline removes original ink with inpainting, then re-renders modified strokes onto the reconstructed background.
@@ -72,11 +71,15 @@ def adaptive_text_mask(gray_8u: np.ndarray) -> np.ndarray:
     return mask
 
 
-def inpaint_background(image_bgr: np.ndarray, mask01: np.ndarray) -> np.ndarray:
-    """Remove ink using inpainting, approximate clean paper background."""
-    mask8 = (mask01 * 255).astype(np.uint8)
-    radius = 3
-    bg = cv2.inpaint(image_bgr, mask8, radius, cv2.INPAINT_TELEA)
+def inpaint_background(image_bgr: np.ndarray, mask01: np.ndarray, severity: float) -> np.ndarray:
+    """Remove ink using inpainting, approximate clean paper background.
+    Enlarges the inpaint region based on severity to avoid dark halos."""
+    k_size = int(1 + round(2 + severity * 4))
+    k_size = max(1, k_size)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
+    dil = cv2.dilate((mask01 * 255).astype(np.uint8), kernel, iterations=1)
+    radius = int(2 + round(2 * severity * 3))
+    bg = cv2.inpaint(image_bgr, dil, radius, cv2.INPAINT_TELEA)
     return bg
 
 
@@ -99,11 +102,44 @@ def elastic_displacement_fields(
     sigma: float,
     alpha: float,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Return dx, dy displacement fields with smooth, low-frequency variations."""
+    """Baseline implementation retained for reference (used internally)."""
     base_x = coherent_noise((h, w), rng, sigma)
     base_y = coherent_noise((h, w), rng, sigma)
     dx = (base_x * 2.0 - 1.0) * alpha
     dy = (base_y * 2.0 - 1.0) * alpha
+    return dx.astype(np.float32), dy.astype(np.float32)
+
+
+def build_warp_fields(h: int, w: int, severity: float, rng: np.random.Generator) -> Tuple[np.ndarray, np.ndarray]:
+    """Combine low-frequency drift, baseline sine drift, and micro-tremor.
+
+    - Low-frequency elastic drift: overall slant/curvature
+    - Baseline drift: vertical sine along X, modulated to vary across Y
+    - Micro-tremor: small high-frequency jitter
+    """
+    # Low-frequency drift
+    dx_low, dy_low = elastic_displacement_fields(
+        h, w, rng, sigma=max(6.0, 12.0 - severity * 5.0), alpha=max(0.5, severity * 6.0)
+    )
+
+    # Baseline drift (vertical sine along x)
+    grid_x = np.linspace(0.0, 1.0, w, dtype=np.float32)
+    phase = float(rng.random() * 2 * math.pi)
+    period = 0.25 + float(rng.random()) * 0.35  # fraction of width per cycle
+    sine = np.sin((grid_x / max(1e-6, period)) * 2 * math.pi + phase)
+    amp = (2.0 + 8.0 * severity)  # pixels
+    # Modulate across Y so different lines drift differently
+    mod_y = coherent_noise((h, 1), rng, sigma=max(10.0, 18.0 - severity * 6.0)) * 0.7 + 0.3
+    dy_base = (sine[None, :] * amp * mod_y).astype(np.float32)
+    dx_base = np.zeros_like(dy_base)
+
+    # Micro-tremor (small, high-frequency jitter)
+    dx_hi, dy_hi = elastic_displacement_fields(
+        h, w, rng, sigma=max(2.0, 4.0 - severity * 1.5), alpha=max(0.2, severity * 1.0)
+    )
+
+    dx = dx_low * 0.6 + dx_base * 0.0 + dx_hi * 0.4
+    dy = dy_low * 0.5 + dy_base * 0.8 + dy_hi * 0.3
     return dx.astype(np.float32), dy.astype(np.float32)
 
 
@@ -117,16 +153,16 @@ def remap_with_displacement(img: np.ndarray, dx: np.ndarray, dy: np.ndarray) -> 
 
 def apply_warp(image_bgr: np.ndarray, severity: float, rng: np.random.Generator) -> np.ndarray:
     h, w = image_bgr.shape[:2]
-    # alpha controls amplitude in pixels; sigma controls smoothness of the field
-    alpha = max(1.0, severity * 8.0)
-    sigma = max(4.0, 12.0 - severity * 6.0)
-    dx, dy = elastic_displacement_fields(h, w, rng, sigma=sigma, alpha=alpha)
-    warped = remap_with_displacement(image_bgr, dx, dy)
-    return warped
+    dx, dy = build_warp_fields(h, w, severity, rng)
+    return remap_with_displacement(image_bgr, dx, dy)
 
 
 def variable_pressure(mask01: np.ndarray, severity: float, rng: np.random.Generator) -> np.ndarray:
-    """Blend between eroded and dilated strokes using smooth noise as a proxy for pen pressure."""
+    """Thickness + intensity modulation guided by pressure and local thickness.
+
+    - Morphological thinning/ thickening driven by smooth pressure field
+    - Alpha/intensity reduced where pressure is low and strokes are thin
+    """
     h, w = mask01.shape
     kernel_size = max(1, int(round(1 + severity * 2)))
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
@@ -134,41 +170,85 @@ def variable_pressure(mask01: np.ndarray, severity: float, rng: np.random.Genera
     dil = cv2.dilate(mask_u8, kernel, iterations=1).astype(np.float32) / 255.0
     ero = cv2.erode(mask_u8, kernel, iterations=1).astype(np.float32) / 255.0
     pressure = coherent_noise((h, w), rng, sigma=max(6.0, 10.0 - severity * 4))
-    blended = ero * (1.0 - pressure) + dil * pressure
-    blended = np.clip(blended, 0.0, 1.0)
-    return blended
+    thickness = cv2.distanceTransform((mask_u8 > 0).astype(np.uint8), cv2.DIST_L2, 3)
+    if thickness.max() > 0:
+        thickness = thickness / thickness.max()
+    # Blend geometry
+    geom = ero * (1.0 - pressure) + dil * pressure
+    geom = np.clip(geom, 0.0, 1.0)
+    # Intensity factor: lighter where pressure low and stroke thin
+    intensity = 0.6 + 0.4 * pressure  # higher pressure -> darker
+    thinness = 1.0 - thickness
+    intensity *= (0.8 + 0.2 * thinness)
+    out = np.clip(geom * intensity, 0.0, 1.0)
+    return out
 
 
 def incomplete_endings(mask01: np.ndarray, severity: float, rng: np.random.Generator) -> np.ndarray:
-    """Fade rightmost edge of random connected components to mimic undrawn final letters."""
+    """Fade along the major axis (PCA) on random components to mimic unfinished terminals."""
     comp_mask = (mask01 > 0.5).astype(np.uint8)
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(comp_mask, connectivity=8)
     out = mask01.copy()
-    fade_prob = 0.25 + 0.35 * severity
-    fade_strength = 0.3 + 0.5 * severity
+    fade_prob = 0.3 + 0.4 * severity
+    base_start = 0.6 + 0.15 * severity
+    strength = 0.35 + 0.5 * severity
     for label in range(1, num_labels):
         if rng.random() > fade_prob:
             continue
         x, y, w, h, area = stats[label]
-        if area < 20 or w < 5:
+        if area < 25 or (w < 4 and h < 4):
             continue
-        roi = out[y : y + h, x : x + w]
-        # Normalize x across the bounding box; fade last 20-35% from the right
-        xs = np.linspace(0.0, 1.0, w, dtype=np.float32)
-        start = 0.65 + 0.1 * rng.random()
-        fade = np.clip((xs - start) / max(1e-6, (1.0 - start)), 0.0, 1.0)
+        roi_mask = (labels[y : y + h, x : x + w] == label).astype(np.uint8)
+        ys, xs = np.nonzero(roi_mask)
+        if len(xs) < 10:
+            continue
+        pts = np.column_stack((xs.astype(np.float32), ys.astype(np.float32)))
+        mean = pts.mean(axis=0)
+        pts_centered = pts - mean
+        # PCA via SVD
+        U, S, Vt = np.linalg.svd(pts_centered, full_matrices=False)
+        axis = Vt[0]  # principal direction (x,y) in ROI coords
+        proj = pts_centered @ axis
+        # Choose the positive end as the fading terminal
+        proj_min, proj_max = float(proj.min()), float(proj.max())
+        if (proj_max - (-proj_min)) < 0:  # not meaningful, fallback
+            continue
+        # Build fade mask per pixel in ROI
+        grid_x, grid_y = np.meshgrid(np.arange(w), np.arange(h))
+        grid_pts = np.column_stack(((grid_x - mean[0]).ravel(), (grid_y - mean[1]).ravel()))
+        grid_proj = (grid_pts @ axis).reshape(h, w)
+        # Normalize to [0,1] using positive side
+        pos_max = max(1e-6, grid_proj.max())
+        norm = (grid_proj / pos_max) * 0.5 + 0.5  # center ~0.5, positive end -> 1
+        start = base_start + 0.05 * float(rng.random())
+        fade = np.clip((norm - start) / max(1e-6, (1.0 - start)), 0.0, 1.0)
         fade = fade ** 1.5
-        fade = (1.0 - fade * fade_strength)
-        roi *= fade[None, :]
-        out[y : y + h, x : x + w] = roi
+        fade = (1.0 - fade * strength)
+        roi_alpha = out[y : y + h, x : x + w]
+        roi_alpha = roi_alpha * fade * (roi_mask.astype(np.float32)) + roi_alpha * (1.0 - roi_mask)
+        out[y : y + h, x : x + w] = roi_alpha
     return out
 
 
 def stroke_bleed(mask01: np.ndarray, severity: float) -> np.ndarray:
-    """Slight blur/bleed of strokes to mimic ink feathering."""
-    sigma = 0.6 + severity * 0.9
-    blurred = gaussian_filter(mask01, sigma=sigma)
-    return np.clip(blurred, 0.0, 1.0)
+    """Edge-weighted, noise-modulated feathering to mimic ink bleed/feather.
+
+    Strength concentrated near stroke edges; interior preserved.
+    """
+    mask = np.clip(mask01, 0.0, 1.0)
+    mask_u8 = (mask * 255).astype(np.uint8)
+    eroded = cv2.erode(mask_u8, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)), iterations=1)
+    edge = (mask_u8.astype(np.int16) - eroded.astype(np.int16)).clip(0, 255).astype(np.uint8)
+    edge = edge.astype(np.float32) / 255.0
+    # Blur edge to get a soft halo
+    sigma = 0.8 + severity * 1.2
+    soft_edge = gaussian_filter(edge, sigma=sigma)
+    soft_edge = np.clip(soft_edge, 0.0, 1.0)
+    # Modulate with mid-frequency noise so bleed is uneven
+    noise = coherent_noise(mask.shape, np.random.default_rng(), sigma=8.0)
+    bleed = soft_edge * (0.2 + 0.6 * severity) * (0.6 + 0.4 * noise)
+    out = np.clip(mask + bleed, 0.0, 1.0)
+    return out
 
 
 def render_strokes(background_bgr: np.ndarray, stroke_alpha: np.ndarray, ink_rgb: Tuple[int, int, int]) -> np.ndarray:
@@ -181,69 +261,7 @@ def render_strokes(background_bgr: np.ndarray, stroke_alpha: np.ndarray, ink_rgb
     return out
 
 
-def add_strikethroughs(img_bgr: np.ndarray, severity: float, rng: np.random.Generator) -> np.ndarray:
-    h, w = img_bgr.shape[:2]
-    count = rng.integers(1, max(2, int(2 + severity * 4)))
-    out = img_bgr.copy()
-    for _ in range(count):
-        y = int(rng.integers(int(h * 0.1), int(h * 0.9)))
-        x0 = int(rng.integers(0, int(w * 0.3)))
-        x1 = int(rng.integers(int(w * 0.6), w))
-        thickness = int(max(1, rng.integers(1, 2 + int(severity * 2))))
-        color = (rng.integers(5, 25), rng.integers(5, 25), rng.integers(5, 25))
-        cv2.line(out, (x0, y), (x1, y + rng.integers(-3, 4)), color, thickness=thickness, lineType=cv2.LINE_AA)
-    return out
-
-
-def add_smudges(img_bgr: np.ndarray, stroke_alpha: np.ndarray, severity: float, rng: np.random.Generator) -> np.ndarray:
-    """Blurred overlays around strokes to mimic finger smudges or ink transfers."""
-    h, w = stroke_alpha.shape
-    # Build smudge mask by dilating strokes and multiplying by low-freq noise
-    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (int(5 + severity * 8), int(5 + severity * 8)))
-    dil = cv2.dilate((stroke_alpha * 255).astype(np.uint8), k, iterations=1) / 255.0
-    noise = coherent_noise((h, w), rng, sigma=12.0)
-    smudge = np.clip(dil * (0.2 + 0.8 * noise) * (0.15 + 0.35 * severity), 0.0, 1.0)
-    blur_ksize = int(9 + severity * 10)
-    if blur_ksize % 2 == 0:
-        blur_ksize += 1
-    smudge_blur = cv2.GaussianBlur(smudge, (blur_ksize, blur_ksize), 0)
-    # Darken underlying image slightly where smudge is present
-    out = img_bgr.astype(np.float32)
-    for c in range(3):
-        out[..., c] = out[..., c] * (1.0 - 0.25 * smudge_blur)
-    return np.clip(out, 0, 255).astype(np.uint8)
-
-
-def age_paper(img_bgr: np.ndarray, severity: float, rng: np.random.Generator) -> np.ndarray:
-    out = img_bgr.astype(np.float32) / 255.0
-    h, w = out.shape[:2]
-    # Warm tone (sepia-like)
-    warm = np.array([1.05, 1.0, 0.92], dtype=np.float32)  # BGR multipliers
-    out = np.clip(out * warm, 0.0, 1.0)
-    # Vignette
-    yy, xx = np.mgrid[0:h, 0:w]
-    cx, cy = w / 2.0, h / 2.0
-    r = np.sqrt(((xx - cx) / max(w, 1)) ** 2 + ((yy - cy) / max(h, 1)) ** 2)
-    vignette = 1.0 - np.clip(r * (1.2 + severity * 0.8), 0.0, 0.5)
-    vignette = vignette ** (1.5 + 1.0 * severity)
-    out *= vignette[..., None]
-    # Stains/foxing: soft brownish spots
-    num_stains = int(severity * 8 + rng.integers(0, 3))
-    for _ in range(num_stains):
-        cx = int(rng.integers(0, w))
-        cy = int(rng.integers(0, h))
-        rad = int(max(5, rng.integers(8, 25) + severity * 25))
-        y, x = np.ogrid[:h, :w]
-        dist2 = (x - cx) ** 2 + (y - cy) ** 2
-        sigma2 = (rad * rad) / 2.0
-        spot = np.exp(-dist2 / max(1.0, sigma2))
-        color = np.array([0.95, 0.90, 0.80], dtype=np.float32)  # slightly brown paper
-        for c in range(3):
-            out[..., c] = out[..., c] * (1.0 - 0.15 * spot) + color[c] * (0.15 * spot)
-    # Paper grain
-    grain = coherent_noise((h, w), rng, sigma=3.0)
-    out *= (0.96 + 0.08 * (grain - 0.5) * severity)
-    return np.clip(out * 255.0, 0, 255).astype(np.uint8)
+# Removed: add_strikethroughs, add_smudges, age_paper (per user request)
 
 
 @dataclass
@@ -253,9 +271,6 @@ class PipelineConfig:
     enable_warp: bool = True
     enable_pressure: bool = True
     enable_incomplete: bool = True
-    enable_paper: bool = True
-    enable_strikethroughs: bool = False
-    enable_smudges: bool = False
 
 
 def age_handwriting_image(input_path: str, output_path: str, config: PipelineConfig) -> None:
@@ -267,14 +282,14 @@ def age_handwriting_image(input_path: str, output_path: str, config: PipelineCon
     gray = to_gray(img)
     mask = adaptive_text_mask(gray)
 
-    # Estimate background (paper) by removing ink
-    background = inpaint_background(img, mask)
+    # Estimate background (paper) by removing ink (severity-aware)
+    background = inpaint_background(img, mask, config.severity)
 
     # Optional warp applied to the stroke mask (and slightly to background to keep coherence)
     if config.enable_warp:
         # Warp mask and background with identical fields for consistency
         h, w = mask.shape
-        dx, dy = elastic_displacement_fields(h, w, rng, sigma=max(6.0, 12.0 - config.severity * 6.0), alpha=max(1.0, config.severity * 10.0))
+        dx, dy = build_warp_fields(h, w, config.severity, rng)
         mask = remap_with_displacement(mask, dx, dy)
         background = remap_with_displacement(background, dx, dy)
 
@@ -293,15 +308,7 @@ def age_handwriting_image(input_path: str, output_path: str, config: PipelineCon
     ink_rgb = (20, 20, 20)
     composed = render_strokes(background, mask, ink_rgb)
 
-    # Smudges and strikethroughs operate on composed image
-    if config.enable_smudges:
-        composed = add_smudges(composed, mask, config.severity, rng)
-    if config.enable_strikethroughs:
-        composed = add_strikethroughs(composed, config.severity, rng)
-
-    # Paper aging at end for global look
-    if config.enable_paper:
-        composed = age_paper(composed, config.severity, rng)
+    # Note: Paper aging, smudges, and strikethroughs were removed by request
 
     cv2.imwrite(output_path, composed)
 
@@ -315,9 +322,7 @@ def build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--no-warp", dest="enable_warp", action="store_false", help="Disable geometric warp")
     p.add_argument("--no-pressure", dest="enable_pressure", action="store_false", help="Disable variable pressure")
     p.add_argument("--no-incomplete", dest="enable_incomplete", action="store_false", help="Disable incomplete endings")
-    p.add_argument("--no-paper", dest="enable_paper", action="store_false", help="Disable paper aging")
-    p.add_argument("--strikethroughs", dest="enable_strikethroughs", action="store_true", help="Add random strikethrough lines")
-    p.add_argument("--smudges", dest="enable_smudges", action="store_true", help="Add smudges around strokes")
+    # Paper aging, smudges, strikethroughs removed per request
     return p
 
 
@@ -331,9 +336,6 @@ def main() -> None:
         enable_warp=args.enable_warp,
         enable_pressure=args.enable_pressure,
         enable_incomplete=args.enable_incomplete,
-        enable_paper=args.enable_paper,
-        enable_strikethroughs=args.enable_strikethroughs,
-        enable_smudges=args.enable_smudges,
     )
     age_handwriting_image(args.input, args.output, config)
 
