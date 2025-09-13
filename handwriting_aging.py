@@ -95,6 +95,14 @@ def coherent_noise(shape: Tuple[int, int], rng: np.random.Generator, sigma: floa
     return noise.astype(np.float32)
 
 
+def luminance_bgr(img_bgr: np.ndarray) -> np.ndarray:
+    """Approximate luminance Y from BGR image in range [0,1]."""
+    img = img_bgr.astype(np.float32) / 255.0
+    b, g, r = img[..., 0], img[..., 1], img[..., 2]
+    y = 0.114 * b + 0.587 * g + 0.299 * r
+    return np.clip(y, 0.0, 1.0)
+
+
 def elastic_displacement_fields(
     h: int,
     w: int,
@@ -177,9 +185,9 @@ def variable_pressure(mask01: np.ndarray, severity: float, rng: np.random.Genera
     geom = ero * (1.0 - pressure) + dil * pressure
     geom = np.clip(geom, 0.0, 1.0)
     # Intensity factor: lighter where pressure low and stroke thin
-    intensity = 0.6 + 0.4 * pressure  # higher pressure -> darker
+    intensity = 0.7 + 0.3 * pressure  # restrict range for readability
     thinness = 1.0 - thickness
-    intensity *= (0.8 + 0.2 * thinness)
+    intensity *= (0.85 + 0.15 * thinness)
     out = np.clip(geom * intensity, 0.0, 1.0)
     return out
 
@@ -224,13 +232,16 @@ def incomplete_endings(mask01: np.ndarray, severity: float, rng: np.random.Gener
         fade = np.clip((norm - start) / max(1e-6, (1.0 - start)), 0.0, 1.0)
         fade = fade ** 1.5
         fade = (1.0 - fade * strength)
+        # Ensure residual visibility for readability
+        min_f = 0.10 + 0.10 * (1.0 - severity)
+        fade = fade * (1.0 - min_f) + min_f
         roi_alpha = out[y : y + h, x : x + w]
         roi_alpha = roi_alpha * fade * (roi_mask.astype(np.float32)) + roi_alpha * (1.0 - roi_mask)
         out[y : y + h, x : x + w] = roi_alpha
     return out
 
 
-def stroke_bleed(mask01: np.ndarray, severity: float) -> np.ndarray:
+def stroke_bleed(mask01: np.ndarray, severity: float, rng: np.random.Generator) -> np.ndarray:
     """Edge-weighted, noise-modulated feathering to mimic ink bleed/feather.
 
     Strength concentrated near stroke edges; interior preserved.
@@ -245,9 +256,55 @@ def stroke_bleed(mask01: np.ndarray, severity: float) -> np.ndarray:
     soft_edge = gaussian_filter(edge, sigma=sigma)
     soft_edge = np.clip(soft_edge, 0.0, 1.0)
     # Modulate with mid-frequency noise so bleed is uneven
-    noise = coherent_noise(mask.shape, np.random.default_rng(), sigma=8.0)
+    noise = coherent_noise(mask.shape, rng, sigma=8.0)
     bleed = soft_edge * (0.2 + 0.6 * severity) * (0.6 + 0.4 * noise)
     out = np.clip(mask + bleed, 0.0, 1.0)
+    return out
+
+
+def compose_scaled_darkening(
+    original_bgr: np.ndarray,
+    background_bgr: np.ndarray,
+    base_alpha: np.ndarray,
+    modified_alpha: np.ndarray,
+    readability_floor: float = 0.08,
+) -> np.ndarray:
+    """Quality-preserving composition using per-channel darkening.
+
+    - Estimate absorption s_c from original/background per channel
+      s_c = 1 - I_c / (Bg_c + eps)
+    - Scale absorption by ratio r = modified_alpha / (base_alpha + eps)
+    - Clamp ratio to avoid over/under darkening, with a small floor to preserve legibility
+    - Compose: Out_c = Bg_c * (1 - s_c')
+    """
+    eps = 1e-6
+    orig = original_bgr.astype(np.float32) / 255.0
+    bg = background_bgr.astype(np.float32) / 255.0
+
+    # Avoid division artifacts where bg is very dark (should not happen for paper)
+    bg_safe = np.maximum(bg, eps)
+    s = 1.0 - (orig / bg_safe)
+    s = np.clip(s, 0.0, 1.0)
+
+    base = np.clip(base_alpha, 0.0, 1.0)
+    mod = np.clip(modified_alpha, 0.0, 1.0)
+
+    # Ratio of new vs base coverage
+    r = mod / (base + eps)
+    # Clamp scaling to avoid extreme fading or over-darkening; allow endings to fade below floor via mask
+    r = np.clip(r, readability_floor, 1.8)
+
+    s_prime = s * r[..., None]
+    s_prime = np.clip(s_prime, 0.0, 1.0)
+
+    # Gate composition to stroke vicinity to preserve background quality
+    base_mask = (base > 0.1).astype(np.uint8)
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    gate = cv2.dilate(base_mask, k, iterations=1).astype(bool) | (mod > 0.05)
+    gate = gate.astype(np.float32)[..., None]
+
+    out = bg * (1.0 - s_prime) * gate + bg * (1.0 - gate)
+    out = np.clip(out * 255.0, 0, 255).astype(np.uint8)
     return out
 
 
@@ -287,11 +344,13 @@ def age_handwriting_image(input_path: str, output_path: str, config: PipelineCon
 
     # Optional warp applied to the stroke mask (and slightly to background to keep coherence)
     if config.enable_warp:
-        # Warp mask and background with identical fields for consistency
+        # Warp only the stroke alpha to create line noncompliance, keep background stable
         h, w = mask.shape
         dx, dy = build_warp_fields(h, w, config.severity, rng)
         mask = remap_with_displacement(mask, dx, dy)
-        background = remap_with_displacement(background, dx, dy)
+
+    # Save soft base alpha for compositing scale reference
+    base_alpha = cv2.GaussianBlur(np.clip(mask, 0.0, 1.0), (0, 0), sigmaX=0.8, sigmaY=0.8)
 
     # Variable pen pressure (thicker/thinner strokes)
     if config.enable_pressure:
@@ -302,11 +361,10 @@ def age_handwriting_image(input_path: str, output_path: str, config: PipelineCon
         mask = incomplete_endings(mask, config.severity, rng)
 
     # Bleed
-    mask = stroke_bleed(mask, config.severity)
+    mask = stroke_bleed(mask, config.severity, rng)
 
-    # Render strokes onto background
-    ink_rgb = (20, 20, 20)
-    composed = render_strokes(background, mask, ink_rgb)
+    # Quality-preserving composition using original absorption scaled by modified alpha
+    composed = compose_scaled_darkening(img, background, base_alpha, mask, readability_floor=0.06 + 0.06 * (1.0 - config.severity))
 
     # Note: Paper aging, smudges, and strikethroughs were removed by request
 
@@ -319,7 +377,7 @@ def build_argparser() -> argparse.ArgumentParser:
     p.add_argument("output", help="Path to save output image")
     p.add_argument("--severity", type=float, default=0.6, help="Overall effect strength [0..1]")
     p.add_argument("--seed", type=int, default=None, help="Random seed")
-    p.add_argument("--no-warp", dest="enable_warp", action="store_false", help="Disable geometric warp")
+    p.add_argument("--no-warp", dest="enable_warp", action="store_false", help="Disable geometric warp (baseline drift & tremor)")
     p.add_argument("--no-pressure", dest="enable_pressure", action="store_false", help="Disable variable pressure")
     p.add_argument("--no-incomplete", dest="enable_incomplete", action="store_false", help="Disable incomplete endings")
     # Paper aging, smudges, strikethroughs removed per request
