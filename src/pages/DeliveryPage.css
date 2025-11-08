@@ -1,0 +1,154 @@
+.delivery-page {
+  padding: 40px 20px;
+  min-height: calc(100vh - 200px);
+}
+
+.delivery-section,
+.payment-section,
+.return-section {
+  margin-bottom: 60px;
+}
+
+.delivery-section h2,
+.payment-section h2,
+.return-section h2 {
+  font-size: 32px;
+  margin-bottom: 30px;
+  color: #2c3e50;
+}
+
+.delivery-options,
+.payment-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 30px;
+  margin-bottom: 40px;
+}
+
+.delivery-option,
+.payment-option {
+  background: #f8f9fa;
+  padding: 30px;
+  border-radius: 12px;
+  text-align: center;
+  transition: transform 0.3s;
+}
+
+.delivery-option:hover,
+.payment-option:hover {
+  transform: translateY(-5px);
+}
+
+.delivery-icon,
+.payment-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 15px;
+}
+
+.delivery-option h3,
+.payment-option h3 {
+  font-size: 20px;
+  margin-bottom: 10px;
+  color: #2c3e50;
+}
+
+.delivery-condition {
+  font-weight: 600;
+  color: #2563eb;
+  margin-bottom: 15px;
+  font-size: 16px;
+}
+
+.delivery-option p,
+.payment-option p {
+  color: #666;
+  line-height: 1.6;
+}
+
+.delivery-info,
+.delivery-terms {
+  background: #f8f9fa;
+  padding: 30px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+}
+
+.delivery-info h3,
+.delivery-terms h3 {
+  font-size: 24px;
+  margin-bottom: 20px;
+  color: #2c3e50;
+}
+
+.delivery-steps {
+  padding-left: 20px;
+}
+
+.delivery-steps li {
+  margin-bottom: 15px;
+  line-height: 1.8;
+  color: #555;
+}
+
+.delivery-terms ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.delivery-terms ul li {
+  margin-bottom: 15px;
+  padding-left: 25px;
+  position: relative;
+  line-height: 1.8;
+  color: #555;
+}
+
+.delivery-terms ul li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #2563eb;
+  font-weight: bold;
+}
+
+.payment-security {
+  background: #f8f9fa;
+  padding: 30px;
+  border-radius: 12px;
+}
+
+.payment-security h3 {
+  font-size: 24px;
+  margin-bottom: 15px;
+  color: #2c3e50;
+}
+
+.payment-security p {
+  color: #666;
+  line-height: 1.8;
+}
+
+.return-info {
+  background: #f8f9fa;
+  padding: 30px;
+  border-radius: 12px;
+}
+
+.return-info p {
+  margin-bottom: 20px;
+  line-height: 1.8;
+  color: #555;
+}
+
+.return-info p:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .delivery-options,
+  .payment-options {
+    grid-template-columns: 1fr;
+  }
+}
+

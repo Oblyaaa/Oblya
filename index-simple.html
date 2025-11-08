@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мебельный Магазин - РОМАШКА</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .header-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: pulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .nav {
+            display: flex;
+            gap: 30px;
+        }
+        
+        .nav a {
+            color: #333;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .nav a:hover {
+            color: #2563eb;
+        }
+        
+        .hero {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%);
+            padding: 80px 20px;
+            text-align: center;
+        }
+        
+        .hero h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        
+        .hero p {
+            font-size: 20px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            padding: 15px 40px;
+            background: #2563eb;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        
+        .cta-button:hover {
+            background: #1d4ed8;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .section {
+            padding: 80px 20px;
+        }
+        
+        .section-title {
+            font-size: 36px;
+            text-align: center;
+            margin-bottom: 50px;
+            color: #2c3e50;
+        }
+        
+        .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .category-card {
+            background: white;
+            padding: 40px 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        
+        .category-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 8px 25px rgba(37, 99, 235, 0.15);
+            border: 2px solid #2563eb;
+        }
+        
+        .category-icon {
+            font-size: 64px;
+            display: block;
+            margin-bottom: 15px;
+        }
+        
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(37, 99, 235, 0.2);
+        }
+        
+        .product-image {
+            width: 100%;
+            height: 250px;
+            background: linear-gradient(135deg, #f0f0f0 0%, #e0e7ff 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+        }
+        
+        .product-info {
+            padding: 20px;
+        }
+        
+        .product-info h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .product-price {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-top: 15px;
+        }
+        
+        .advantages {
+            background: #fff;
+        }
+        
+        .advantages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+        }
+        
+        .advantage-item {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e0e7ff 100%);
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+        
+        .advantage-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.15);
+        }
+        
+        .advantage-icon {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 15px;
+        }
+        
+        .footer {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 50px 20px 20px;
+        }
+        
+        .footer-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+        }
+        
+        .footer h3 {
+            margin-bottom: 15px;
+        }
+        
+        .footer ul {
+            list-style: none;
+        }
+        
+        .footer ul li {
+            margin-bottom: 10px;
+        }
+        
+        .footer a {
+            color: #bdc3c7;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            color: #fff;
+        }
+        
+        .footer-bottom {
+            text-align: center;
+            padding-top: 20px;
+            margin-top: 30px;
+            border-top: 1px solid #34495e;
+            color: #95a5a6;
+        }
+        
+        .info-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px auto;
+            max-width: 800px;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 28px;
+            }
+            
+            .nav {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-container">
+            <div class="logo">🌼 РОМАШКА</div>
+            <nav class="nav">
+                <a href="#home">Главная</a>
+                <a href="#catalog">Каталог</a>
+                <a href="#about">О нас</a>
+                <a href="#contacts">Контакты</a>
+            </nav>
+        </div>
+    </header>
+
+    <section class="hero" id="home">
+        <div class="container">
+            <h1>Мебель Премиум Класса для Вашего Дома</h1>
+            <p>Широкий ассортимент качественной мебели с доставкой по всей России</p>
+            <a href="#catalog" class="cta-button">Смотреть каталог</a>
+        </div>
+    </section>
+
+    <div class="info-box">
+        <strong>⚠️ Это упрощенная версия сайта.</strong><br>
+        Для полной функциональности (каталог с фильтрами, корзина, роутинг) необходимо установить Node.js и запустить через npm.
+        См. файл КАК_ПОСМОТРЕТЬ_САЙТ.txt
+    </div>
+
+    <section class="section advantages">
+        <div class="container">
+            <h2 class="section-title">Наши преимущества</h2>
+            <div class="advantages-grid">
+                <div class="advantage-item">
+                    <span class="advantage-icon">🚚</span>
+                    <h3>Бесплатная доставка</h3>
+                    <p>При заказе от 50000 ₽</p>
+                </div>
+                <div class="advantage-item">
+                    <span class="advantage-icon">🛡️</span>
+                    <h3>Гарантия качества</h3>
+                    <p>2 года гарантии на всю продукцию</p>
+                </div>
+                <div class="advantage-item">
+                    <span class="advantage-icon">💰</span>
+                    <h3>Лучшие цены</h3>
+                    <p>Регулярные акции и скидки</p>
+                </div>
+                <div class="advantage-item">
+                    <span class="advantage-icon">⚡</span>
+                    <h3>Быстрая сборка</h3>
+                    <p>Профессиональная сборка в день доставки</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="catalog">
+        <div class="container">
+            <h2 class="section-title">Категории товаров</h2>
+            <div class="categories-grid">
+                <div class="category-card">
+                    <span class="category-icon">🛋️</span>
+                    <h3>Гостиная</h3>
+                </div>
+                <div class="category-card">
+                    <span class="category-icon">🛏️</span>
+                    <h3>Спальня</h3>
+                </div>
+                <div class="category-card">
+                    <span class="category-icon">🍽️</span>
+                    <h3>Кухня</h3>
+                </div>
+                <div class="category-card">
+                    <span class="category-icon">💼</span>
+                    <h3>Офис</h3>
+                </div>
+                <div class="category-card">
+                    <span class="category-icon">🍴</span>
+                    <h3>Столовая</h3>
+                </div>
+                <div class="category-card">
+                    <span class="category-icon">🧸</span>
+                    <h3>Детская</h3>
+                </div>
+            </div>
+
+            <h2 class="section-title">Популярные товары</h2>
+            <div class="products-grid">
+                <div class="product-card">
+                    <div class="product-image">🛋️</div>
+                    <div class="product-info">
+                        <h3>Диван "Комфорт"</h3>
+                        <p>Современный диван с мягкой обивкой и удобными подушками</p>
+                        <div class="product-price">45 900 ₽</div>
+                    </div>
+                </div>
+                <div class="product-card">
+                    <div class="product-image">🛏️</div>
+                    <div class="product-info">
+                        <h3>Кровать "Люкс"</h3>
+                        <p>Элегантная кровать из натурального дерева</p>
+                        <div class="product-price">32 900 ₽</div>
+                    </div>
+                </div>
+                <div class="product-card">
+                    <div class="product-image">🍽️</div>
+                    <div class="product-info">
+                        <h3>Обеденный стол "Семейный"</h3>
+                        <p>Просторный обеденный стол на 6-8 человек</p>
+                        <div class="product-price">18 900 ₽</div>
+                    </div>
+                </div>
+                <div class="product-card">
+                    <div class="product-image">💼</div>
+                    <div class="product-info">
+                        <h3>Офисное кресло "Эргономик"</h3>
+                        <p>Ортопедическое кресло с регулировкой</p>
+                        <div class="product-price">12 900 ₽</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="about">
+        <div class="container">
+            <h2 class="section-title">О нас</h2>
+            <p style="text-align: center; max-width: 800px; margin: 0 auto; font-size: 18px; line-height: 1.8;">
+                Мы - современный интернет-магазин мебели, который уже более 10 лет помогает 
+                создавать уютные и стильные интерьеры. Наша миссия - сделать качественную мебель 
+                доступной каждому, кто ценит комфорт и красоту в своем доме.
+            </p>
+        </div>
+    </section>
+
+    <footer class="footer" id="contacts">
+        <div class="footer-container">
+            <div>
+                <h3>РОМАШКА</h3>
+                <p>Качественная мебель для вашего дома и офиса</p>
+            </div>
+            <div>
+                <h3>Контакты</h3>
+                <ul>
+                    <li>📞 +7 (495) 123-45-67</li>
+                    <li>✉️ info@romashka.ru</li>
+                    <li>📍 Москва, ул. Мебельная, 1</li>
+                </ul>
+            </div>
+            <div>
+                <h3>Информация</h3>
+                <ul>
+                    <li><a href="#about">О нас</a></li>
+                    <li><a href="#catalog">Каталог</a></li>
+                    <li><a href="#">Доставка</a></li>
+                    <li><a href="#">Гарантия</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 РОМАШКА. Все права защищены.</p>
+        </div>
+    </footer>
+</body>
+</html>
+

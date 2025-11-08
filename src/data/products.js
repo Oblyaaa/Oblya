@@ -1,0 +1,203 @@
+export const categories = [
+  { id: 'living-room', name: 'Гостиная', icon: '🛋️' },
+  { id: 'bedroom', name: 'Спальня', icon: '🛏️' },
+  { id: 'kitchen', name: 'Кухня', icon: '🍽️' },
+  { id: 'office', name: 'Офис', icon: '💼' },
+  { id: 'dining', name: 'Столовая', icon: '🍴' },
+  { id: 'children', name: 'Детская', icon: '🧸' }
+]
+
+export const products = [
+  {
+    id: 1,
+    name: 'Диван "Комфорт"',
+    category: 'living-room',
+    price: 45900,
+    oldPrice: 54900,
+    image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800',
+    images: [
+      'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800',
+      'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=800',
+      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800'
+    ],
+    description: 'Современный диван с мягкой обивкой и удобными подушками. Идеален для гостиной.',
+    fullDescription: 'Диван "Комфорт" - это сочетание элегантности и практичности. Модель выполнена из высококачественных материалов: каркас из массива дерева, наполнитель - упругий пенополиуретан. Обивка выполнена из прочной ткани, устойчивой к износу. Диван легко трансформируется в спальное место.',
+    material: 'Ткань, массив дерева',
+    dimensions: '220 x 95 x 85 см',
+    sleepingArea: '140 x 190 см',
+    mechanism: 'Еврокнижка',
+    article: '25346',
+    deliveryDays: '2-7',
+    isBestseller: true,
+    color: 'Бежевый',
+    style: 'Современный',
+    inStock: true,
+    rating: 4.8,
+    reviews: 24
+  },
+  {
+    id: 2,
+    name: 'Кровать "Люкс"',
+    category: 'bedroom',
+    price: 32900,
+    oldPrice: null,
+    image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800',
+    images: [
+      'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800',
+      'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800'
+    ],
+    description: 'Элегантная кровать из натурального дерева с мягким изголовьем.',
+    fullDescription: 'Кровать "Люкс" изготовлена из массива дуба с использованием современных технологий обработки. Изголовье обтянуто мягкой тканью для комфортного отдыха. Ортопедическое основание входит в комплект.',
+    material: 'Массив дуба',
+    dimensions: '200 x 160 x 110 см',
+    article: '25412',
+    deliveryDays: '1-7',
+    isBestseller: true,
+    color: 'Дуб',
+    style: 'Классический',
+    inStock: true,
+    rating: 4.9,
+    reviews: 18
+  },
+  {
+    id: 3,
+    name: 'Обеденный стол "Семейный"',
+    category: 'dining',
+    price: 18900,
+    oldPrice: 22900,
+    image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800',
+    images: [
+      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800',
+      'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=800'
+    ],
+    description: 'Просторный обеденный стол на 6-8 человек с расширяемой столешницей.',
+    fullDescription: 'Обеденный стол "Семейный" - идеальное решение для большой семьи. Столешница может быть расширена с помощью дополнительных вставок. Ножки из прочного металла обеспечивают устойчивость.',
+    material: 'МДФ, металл',
+    dimensions: '180 x 90 x 75 см (расширяется до 240 см)',
+    article: '25891',
+    deliveryDays: '3-10',
+    isBestseller: false,
+    color: 'Белый',
+    style: 'Скандинавский',
+    inStock: true,
+    rating: 4.7,
+    reviews: 31
+  },
+  {
+    id: 4,
+    name: 'Кухонный гарнитур "Модерн"',
+    category: 'kitchen',
+    price: 125000,
+    oldPrice: null,
+    image: 'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=800',
+    images: [
+      'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=800',
+      'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=800'
+    ],
+    description: 'Современный кухонный гарнитур с фасадами МДФ и качественной фурнитурой.',
+    fullDescription: 'Кухонный гарнитур "Модерн" включает в себя все необходимое для современной кухни: верхние и нижние шкафы, выдвижные ящики, полки, столешница из искусственного камня. Фасады выполнены из МДФ с покрытием, устойчивым к влаге и загрязнениям.',
+    material: 'МДФ, искусственный камень',
+    dimensions: '300 x 60 x 220 см (индивидуальный размер)',
+    article: '26123',
+    deliveryDays: '14-30',
+    isBestseller: false,
+    color: 'Белый глянец',
+    style: 'Современный',
+    inStock: true,
+    rating: 4.6,
+    reviews: 15
+  },
+  {
+    id: 5,
+    name: 'Офисное кресло "Эргономик"',
+    category: 'office',
+    price: 12900,
+    oldPrice: 15900,
+    image: 'https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?w=800',
+    images: [
+      'https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?w=800'
+    ],
+    description: 'Ортопедическое офисное кресло с регулировкой высоты и подлокотниками.',
+    fullDescription: 'Офисное кресло "Эргономик" разработано для комфортной работы в течение всего дня. Имеет регулировку высоты, наклона спинки, подлокотников. Поясничная поддержка обеспечивает правильное положение спины.',
+    material: 'Ткань, металл, пластик',
+    dimensions: '65 x 65 x 120 см',
+    article: '25987',
+    deliveryDays: '1-5',
+    isBestseller: true,
+    color: 'Черный',
+    style: 'Офисный',
+    inStock: true,
+    rating: 4.5,
+    reviews: 42
+  },
+  {
+    id: 6,
+    name: 'Детская кровать "Радуга"',
+    category: 'children',
+    price: 21900,
+    oldPrice: null,
+    image: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=800',
+    images: [
+      'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=800'
+    ],
+    description: 'Яркая и безопасная детская кровать с бортиками для детей от 3 лет.',
+    fullDescription: 'Детская кровать "Радуга" изготовлена из экологически чистых материалов. Имеет защитные бортики для безопасности ребенка. Яркий дизайн понравится детям, а прочность конструкции - родителям.',
+    material: 'Массив сосны',
+    dimensions: '170 x 80 x 85 см',
+    article: '25734',
+    deliveryDays: '2-7',
+    isBestseller: false,
+    color: 'Разноцветный',
+    style: 'Детский',
+    inStock: true,
+    rating: 4.9,
+    reviews: 28
+  },
+  {
+    id: 7,
+    name: 'Журнальный столик "Минимализм"',
+    category: 'living-room',
+    price: 8900,
+    oldPrice: 11900,
+    image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800',
+    images: [
+      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800'
+    ],
+    description: 'Стильный журнальный столик с полкой для хранения.',
+    fullDescription: 'Журнальный столик "Минимализм" выполнен в современном стиле. Имеет нижнюю полку для хранения журналов и других мелочей. Компактные размеры делают его идеальным для небольших гостиных.',
+    material: 'Стекло, металл',
+    dimensions: '120 x 60 x 45 см',
+    article: '25678',
+    deliveryDays: '1-5',
+    isBestseller: false,
+    color: 'Черный',
+    style: 'Минимализм',
+    inStock: true,
+    rating: 4.4,
+    reviews: 19
+  },
+  {
+    id: 8,
+    name: 'Шкаф-купе "Гармония"',
+    category: 'bedroom',
+    price: 45900,
+    oldPrice: null,
+    image: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=800',
+    images: [
+      'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=800'
+    ],
+    description: 'Вместительный шкаф-купе с зеркальными дверями и внутренней организацией.',
+    fullDescription: 'Шкаф-купе "Гармония" - это максимум функциональности и стиля. Внутреннее пространство организовано с помощью полок, штанг и выдвижных ящиков. Зеркальные двери зрительно увеличивают пространство комнаты.',
+    material: 'ЛДСП, зеркало',
+    dimensions: '220 x 60 x 240 см',
+    article: '26245',
+    deliveryDays: '7-14',
+    isBestseller: false,
+    color: 'Белый',
+    style: 'Современный',
+    inStock: true,
+    rating: 4.7,
+    reviews: 22
+  }
+]
+
